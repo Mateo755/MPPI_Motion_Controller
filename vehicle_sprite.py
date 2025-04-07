@@ -16,7 +16,8 @@ class VehicleSprite:
         L = 0.9 + 0.9
         R = 2.5
         delta = np.arctan(L / R)
-        self.state = np.array([0.0, 0.0, 0.0, 2.0, 0.0, 0.0, delta, 0])
+        #self.state = np.array([0.0, 0.0, 0.0, 2.0, 0.0, 0.0, delta, 0])
+        self.state = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         self.control = np.array([0.0, 0.0])
 
         # Rozmiary pojazdu
@@ -98,3 +99,54 @@ class VehicleSprite:
 
     def set_control(self, throttle, steering):
         self.control = np.array([steering, throttle])
+
+    def apply_control_input(self, throttle_input, steering_input, dt):
+        # Przeliczenie sterowania WASD na prędkości zmian
+        # dT = 2.0 * throttle_input
+        # ddelta = 1.5 * steering_input
+
+        # # Aktualizuj sterowanie w stanie pojazdu
+        # self.state[6] += ddelta * dt  # delta (skręt)
+        # self.state[7] += dT * dt      # T (napęd)
+
+        # # (opcjonalnie: ogranicz zakres delta i T)
+        # self.state[6] = max(-0.6, min(0.6, self.state[6]))  # max skręt ± rad
+        # self.state[7] = max(-1.0, min(1.0, self.state[7]))  # max napęd
+        
+        max_delta_rate = np.radians(90)
+        max_throttle_rate = 1.5  # szybciej narasta
+
+        delta_dot = max_delta_rate * steering_input
+
+        # TYLKO jeśli trzymamy W (czyli throttle_input > 0) → naliczamy gaz
+        if throttle_input > 0:
+            T_dot = max_throttle_rate
+        elif throttle_input < 0:
+            T_dot = -max_throttle_rate
+        else:
+            if self.state[7] > 0:
+                T_dot = -max_throttle_rate
+            elif self.state[7] < 0:
+                T_dot = max_throttle_rate
+            else:
+                T_dot = 0.0
+
+        self.control = np.array([delta_dot, T_dot])
+
+    def stop(self):
+        self.state[3] = 0.0  # vx – prędkość wzdłużna
+        self.state[4] = 0.0  # vy – prędkość poprzeczna (jeśli używasz)
+        self.state[5] = 0.0  # r  – prędkość obrotowa
+        self.state[7] = 0.0  # T  – napęd
+
+    def respawn(self, pos=None):
+        # Jeśli nie podano pozycji, respawn na środku domyślnym
+        if pos is None:
+            pos = (self.origin_x, self.origin_y)
+
+        # Reset stanu: s, n, mu, vx, vy, r, delta, T
+        self.state = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.control = np.array([0.0, 0.0])
+
+        # Pozycja sprite'a
+        self.body_rect.center = pos

@@ -77,18 +77,36 @@ class VehicleModelKinematic:
         u = [delta_dot, T_dot] (tu ignorowane)
         """
         s, n, mu, vx, vy, r, delta, T = x
+        delta_dot, T_dot = u
         L = self.lF + self.lR
 
+        # Parametry ograniczeń
+        max_delta = np.radians(35)      # maks. skręt w radianach
+        max_throttle = 1.0              # maks. napęd
+        min_throttle = -1.0 
+
+        # Kinematyka
         ds = vx * np.cos(mu)
         dn = vx * np.sin(mu)
         dmu = vx / L * np.tan(delta)
 
-        # reszta ignorowana w kinematyce
-        dvx = 0.0
+        # Prosty model napędu
+        acceleration = 5.0 * T
+        dvx = acceleration
+
         dvy = 0.0
         dr = 0.0
-        ddelta = 0.0
-        dT = 0.0
-        
 
-        return np.array([ds, dn, dmu, dvx, dvy, dr, ddelta, dT])
+        # Integracja sterowań
+        new_delta = delta + delta_dot * 0.016  # zakładamy dt = 0.016 (60 FPS)
+        new_T = T + T_dot * 0.016
+
+        # OGRANICZENIA
+        new_delta = np.clip(new_delta, -max_delta, max_delta)
+        new_T = np.clip(new_T, min_throttle, max_throttle)
+
+        # Zwracamy różnicę (zmianę)
+        ddelta = new_delta - delta
+        dT = new_T - T
+
+        return np.array([ds, dn, dmu, dvx, dvy, dr, ddelta / 0.016, dT / 0.016])
