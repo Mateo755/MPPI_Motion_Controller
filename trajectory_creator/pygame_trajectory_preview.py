@@ -20,6 +20,7 @@ def world_to_screen(x, y):
 
 
 def draw_path(screen, points, color, width=2):
+    """Rysuje linie po punktach"""
     for i in range(len(points) - 1):
         p1 = world_to_screen(*points[i])
         p2 = world_to_screen(*points[i + 1])
