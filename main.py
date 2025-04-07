@@ -12,8 +12,7 @@ def main():
 
     model = VehicleModelKinematic()
     car = VehicleSprite(model, start_pos=(400, 300))
-    all_sprites = pygame.sprite.Group(car)
-
+  
     running = True
     while running:
         dt = clock.tick(60) / 1000.0  # w sekundach
@@ -27,10 +26,10 @@ def main():
         steering = 0
 
         #car.set_control(throttle, steering)
-        all_sprites.update(dt)
+        car.update(dt)
 
         screen.fill((255, 255, 255))
-        all_sprites.draw(screen)
+        car.draw(screen)
         pygame.display.flip()
 
     pygame.quit()
