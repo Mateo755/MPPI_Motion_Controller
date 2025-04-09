@@ -21,7 +21,7 @@ class VehicleSprite:
         self.control = np.array([0.0, 0.0])
 
         # Rozmiary pojazdu
-        self.car_width = 50
+        self.car_width = 40
         self.car_height = 30
 
         # Korpus pojazdu
@@ -31,7 +31,7 @@ class VehicleSprite:
         self.body_rect = self.body_image.get_rect(center=start_pos)
 
         # Zaznaczenie przodu auta (prawa krawędź)
-        pygame.draw.line(self.original_body, (0, 0, 255), (self.car_width - 2, 0), (self.car_width - 2, self.car_height), 2)
+        pygame.draw.line(self.original_body, (255, 0, 0), (self.car_width - 2, 0), (self.car_width - 2, self.car_height), 3)
 
         # Koła
         self.wheel_width = 12
