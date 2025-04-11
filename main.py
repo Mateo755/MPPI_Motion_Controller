@@ -1,7 +1,7 @@
 import pygame
 import numpy as np
 import torch
-from torch_vehicle_dynamics import vehicle_dynamics, running_cost, terminal_cost, set_centerline
+from torch_vehicle_dynamics import vehicle_dynamics, running_cost
 from pytorch_mppi import MPPI
 from vehicle_sprite import VehicleSprite
 
@@ -12,27 +12,13 @@ SCREEN_HEIGHT = 900
 num_points = 100
 radius = 10.0
 theta = np.linspace(0, np.pi, num_points)
-
-# Generuj centerline z kolumnami: x, y, yaw, v
-x_vals = radius * np.cos(theta)
-y_vals = radius * np.sin(theta)
-dx = np.gradient(x_vals)
-dy = np.gradient(y_vals)
-yaws = np.arctan2(dy, dx)
-vs = np.full_like(x_vals, 4.0)  # stała prędkość referencyjna
-centerline = np.column_stack((x_vals, y_vals, yaws, vs))
-
-track_center = centerline[:, :2].mean(axis=0)
-
-# Przekazanie referencji do running_cost
-set_centerline(centerline)
-
+centerline = np.column_stack((radius * np.cos(theta), radius * np.sin(theta)))
+track_center = centerline.mean(axis=0)
 scale = 20.0
 origin_x = SCREEN_WIDTH // 2 - track_center[0] * scale
 origin_y = SCREEN_HEIGHT // 2 - track_center[1] * scale
-
-start_world = centerline[0, :2]
-dir_vec = centerline[1, :2] - centerline[0, :2]
+start_world = centerline[0]
+dir_vec = centerline[1] - centerline[0]
 angle = np.arctan2(dir_vec[1], dir_vec[0])
 
 def draw_track(screen, track, color):
@@ -57,10 +43,9 @@ def main():
     mppi = MPPI(
         dynamics=vehicle_dynamics,
         running_cost=running_cost,
-        terminal_state_cost=terminal_cost,
         nx=8,
         noise_sigma=torch.diag(torch.tensor([0.1, 0.1])),
-        num_samples=500,
+        num_samples=100,
         horizon=20,
         lambda_=1.0,
         u_min=torch.tensor([-0.5, -0.2]),
@@ -71,21 +56,32 @@ def main():
 
     running = True
     while running:
-        dt = clock.tick(60) / 1000.0 
+        dt = min(clock.tick(60) / 1000.0, 0.03) 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
         state_tensor = torch.tensor(car.state, dtype=torch.float32).to(device)
         u = mppi.command(state_tensor)
+        u = torch.nan_to_num(u, nan=0.0, posinf=0.0, neginf=0.0)  # Bezpieczne sterowanie
+        u = torch.clamp(u, min=torch.tensor([-0.5, -0.2]), max=torch.tensor([0.5, 0.5]))
+
+        if not torch.isfinite(u).all():
+            print("MPPI wygenerował NaN — reset nominal_u")
+            mppi.nominal_u[:] = mppi.u_init.repeat(mppi.horizon, 1)
+            u = mppi.u_init.clone()
 
         next_state = vehicle_dynamics(state_tensor.unsqueeze(0), u.unsqueeze(0))[0]
         new_state = state_tensor + dt * next_state
 
+        if not torch.isfinite(new_state).all():
+            print("Niepoprawny stan — pomijam aktualizację")
+            continue
+
         car.set_state_from_tensor(new_state)
 
         screen.fill((255, 255, 255))
-        draw_track(screen, centerline[:, :2], (0, 0, 255))
+        draw_track(screen, centerline, (0, 0, 255))
         car.draw(screen)
         pygame.display.flip()
 
