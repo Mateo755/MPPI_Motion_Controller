@@ -29,7 +29,7 @@ class VehicleModel:
         # -----------------Napęd i opory jazdy-----------------------------
         
         self.Cm = 400.0             # współczynnik napędu (jak bardzo T wpływa na siłę napędową)
-        self.Cr0 = 0 #50.0          # opór toczenia (stały)
+        self.Cr0 = 50.0          # opór toczenia (stały)
         self.Cr2 = 1.0              # opór aerodynamiczny (rosnący z prędkością kwadratowo)
 
         self.ptv = 10.0

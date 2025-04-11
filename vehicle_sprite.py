@@ -16,7 +16,7 @@ class VehicleSprite:
         self.origin_y = origin_y
 
         # Stan:                  s,   n,  mu,  vx,  vy,  r, delta, T
-        self.state = np.array([0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0])
+        self.state = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         # Sterowanie:     delta_dot,   T_dot
         self.control = np.array([0.0, 0.0])
 
@@ -50,10 +50,21 @@ class VehicleSprite:
 
         self.wheels = []
 
+   
     def update(self, dt):
         """Liczy nowe położenie pojazdu"""
+        """(opcjonalne) aktualizacja przez model, np. jeśli nie używamy pytorch-mppi"""
         dx = self.model.dynamics(self.state, self.control) * dt  # jak zmienia się stan
         self.state += dx                                         # # nowy stan po czasie dt
+
+   
+    def set_state_from_tensor(self, state_tensor):
+        """Ustawia stan pojazdu na podstawie torch.Tensor (dla pytorch-mppi)"""
+        self.state = state_tensor.detach().cpu().numpy()
+        #print(f"State_tensor: {self.state}")
+    
+    def draw(self, screen):
+        """Wyświetlenie elementów pojazdu na ekranie"""
 
         # Pozycja i orientacja korpusu
         x = self.origin_x + self.state[0] * self.scale
@@ -87,9 +98,6 @@ class VehicleSprite:
             rect.center = (wheel_x, wheel_y)
 
             self.wheels.append((rotated_wheel, rect))
-
-    def draw(self, screen):
-        """Wyświetlenie elementów pojazdu na ekranie"""
         screen.blit(self.body_image, self.body_rect)
         for img, rect in self.wheels:
             screen.blit(img, rect)
