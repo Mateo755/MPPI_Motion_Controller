@@ -1,7 +1,7 @@
 import pygame
 import sys
 from vehicle_sprite import VehicleSprite
-from vehicle_model import VehicleModelKinematic  # <- Twój model dynamiki pojazdu
+from vehicle_model import VehicleModelKinematic,VehicleModel  # <- Twój model dynamiki pojazdu
 
 # --- MAIN ---
 def main():
@@ -11,7 +11,7 @@ def main():
     clock = pygame.time.Clock()
 
     # Model i sprite pojazdu
-    model = VehicleModelKinematic()
+    model = VehicleModel()
     car = VehicleSprite(model, start_pos=(400, 300))
 
     running = True

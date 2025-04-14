@@ -4,24 +4,34 @@ import numpy as np
 # --- MODEL DYNAMIKI ---
 class VehicleModel:
     def __init__(self):
-        self.lF = 0.9
-        self.lR = 0.9
-        self.m = 200.0
-        self.Iz = 100.0
-        self.g = 9.81
-
-        self.BF = 5.0
-        self.CF = 1.3
-        self.DF = 1.0
-        self.BR = 5.0
+        """Definicja parametrów pojazdu"""
+        # ------------------Parametry pojazdu, korpusu------------------
+        #   
+        self.lF = 0.9               # odległość od środka masy do osi przedniej
+        self.lR = 0.9               # odległość od środka masy do osi tylnej
+        self.m = 230.0              # masa pojazdu
+        self.Iz = 108.5             # moment bezwładności względem osi Z
+        self.g = 9.81               # przyspieszenie grawitacyjne
+        
+        # ------------------Parametry opon-------------------------------
+        # -Przód
+        self.BF = 10.0               # sztywność opon (krzywizna)
+        self.CF = 1.3           # kształt krzywej (nachylenie)
+        self.DF = 1.0              # maksymalna siła boczna (amplituda)
+        
+        # -Tył
+        self.BR = 12.0
         self.CR = 1.3
         self.DR = 1.0
 
-        self.Cm = 400.0
-        self.Cr0 = 0 #50.0
-        self.Cr2 = 1.0
+        # -----------------Napęd i opory jazdy-----------------------------
+        
+        self.Cm = 0.3 * self.m             # współczynnik napędu (jak bardzo T wpływa na siłę napędową)
+        self.Cr0 = 50            # opór toczenia (stały)
+        self.Cr2 = 0.5            # opór aerodynamiczny (rosnący z prędkością kwadratowo)
 
-        self.ptv = 10.0
+        self.ptv = 0.05
+
 
     def curvature(self, s):
         return 0.0
@@ -44,11 +54,13 @@ class VehicleModel:
 
     def torque_vectoring(self, vx, r, delta):
         rt = np.tan(delta) * vx / (self.lF + self.lR)
-        return self.ptv * (rt - r)
+        return self.ptv * (rt - r) 
 
     def dynamics(self, x, u, s=0.0):
         s_pos, n, mu, vx, vy, r, delta, T = x
         ddelta, dT = u
+
+        print(f"s_pos: {s_pos}, n: {n}, mu: {mu}, vx: {vx}, vy: {vy}, r: {r}, delta: {delta}, T: {T}")
 
         kappa = self.curvature(s_pos)
         Fy_f, Fy_r = self.tire_forces(x)
