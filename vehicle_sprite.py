@@ -1,24 +1,20 @@
 import pygame
 import numpy as np
+from vehicle_kinematic_model import VehicleKinematicModel
 
 def wrap_angle(angle):
     """Zmienia kąt, żeby zawsze mieścił się w przedziale [-180, 180]"""
     return (angle + 180) % 360 - 180
 
-class VehicleSprite:
+class VehicleSprite(VehicleKinematicModel):
     """Klasa integruje fizyczny model pojazdu z jego reprezentacją graficzną w Pygame"""
 
-    def __init__(self, model, start_pos, scale=50, origin_x=400, origin_y=300):
+    def __init__(self, start_pos, scale=50, origin_x=400, origin_y=300):
+        super().__init__()
         """Inicjalizacja parametrów wizualizacji pojazdu"""
-        self.model = model
         self.scale = scale
         self.origin_x = origin_x
         self.origin_y = origin_y
-
-        # Stan:                  s,   n,  mu,  vx,  vy,  r, delta, T
-        self.state = np.array([0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0])
-        # Sterowanie:     delta_dot,   T_dot
-        self.control = np.array([0.0, 0.0])
 
         # Rozmiary pojazdu
         self.car_width = 40
@@ -52,8 +48,8 @@ class VehicleSprite:
 
     def update(self, dt):
         """Liczy nowe położenie pojazdu"""
-        dx = self.model.dynamics(self.state, self.control) * dt  # jak zmienia się stan
-        self.state += dx                                         # # nowy stan po czasie dt
+        self.state = self.next_state(self.state, self.control, dt)   
+                                          
 
         # Pozycja i orientacja korpusu
         x = self.origin_x + self.state[0] * self.scale
@@ -66,7 +62,7 @@ class VehicleSprite:
 
  
         self.wheels = []
-        delta_deg = -np.degrees(self.state[6])  # skręt w stopniach dla przednich kół
+        delta_deg = -np.degrees(self.control[0])  # skręt w stopniach dla przednich kół
 
         theta = self.state[2]  # obrót korpusu w radianach
         R = np.array([
@@ -94,6 +90,4 @@ class VehicleSprite:
         for img, rect in self.wheels:
             screen.blit(img, rect)
 
-    def set_control(self, throttle, steering):
-        """Ustawienie wektora sterowań"""
-        self.control = np.array([steering, throttle])
+
