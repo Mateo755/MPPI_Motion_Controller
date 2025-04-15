@@ -11,7 +11,7 @@ class VehicleKinematicModel:
         self.wheel_base = self.lF + self.lR             # rozstaw osi
         self.max_steer_abs = 0.5236                     # maksymalny kąt skrętu (30°)
         self.max_accel_abs = 2.0                        # maksymalne przyspieszenie
-        self.state = np.array([0.0, 0.0, 0.0, 1.0])     # wektor stanu -> x, y, yaw, v
+        self.state = np.array([0.0, 0.0, 0.0, 0.3])     # wektor stanu -> x, y, yaw, v
         self.control = np.array([0.0, 0.0])
 
 

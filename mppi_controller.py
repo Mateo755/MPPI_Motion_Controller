@@ -3,7 +3,7 @@ import numpy as np
 class MppiController:
     """Klasa implementująca sterownik bazujący na metodzie MPPI"""
 
-    def __init__(self, model, ref_path, N=30, K=300, lambda_=1.0, dt=0.05, noise_sigma=(0.4, 1.0)):
+    def __init__(self, model, ref_path, N=30, K=300, lambda_=0.8, dt=0.05, noise_sigma=(0.2, 0.5)):
         """ Inicjalizacja parametrów sterowania
 
         :param model: obiekt klasy VehicleModel
@@ -25,6 +25,10 @@ class MppiController:
         self.nominal_u = np.zeros((N, self.udim))       # bieżąca trajektoria sterowania
         self.ref_path = ref_path
 
+                                                        # for visualization
+        self.last_rollouts = []
+        self.last_nominal = None
+
     def simulate_trajectory(self, x0, U):
         """Symuluje trajektorię dla danego ciągu sterowań"""
 
@@ -32,7 +36,12 @@ class MppiController:
         trajectory = [x.copy()]             # dodaje stan początkowy x0 do trajektorii
 
         for u in U:
-            x = self.model.next_state(x, u, self.dt)  # oblicza nowy stan na podstawie aktualnego stanu i sterowania
+            #u = np.array([u[0], max(0.0, u[1])])  # ⛔ nie pozwól MPPI cofać
+
+            u[0] = np.clip(u[0], -0.5236, 0.5236)
+            u[1] = np.clip(u[1], -3 , 3 )
+            x = self.model.next_state(x, u, self.dt)
+
             trajectory.append(x.copy())
         return np.array(trajectory)
     
@@ -42,37 +51,41 @@ class MppiController:
         for state in trajectory:
             x, y, yaw, v = state
 
-            # 1. Najbliższy punkt na trajektorii referencyjnej
+            if v < 0.01:
+                return 1e6
+
             distances = np.linalg.norm(self.ref_path - np.array([x, y]), axis=1)
             nearest_idx = np.argmin(distances)
-            min_dist = distances[nearest_idx]
-            path_point = self.ref_path[nearest_idx]
 
-            # 2. Kąt między orientacją pojazdu a wektorem toru
-            if nearest_idx < len(self.ref_path) - 1:
-                next_point = self.ref_path[nearest_idx + 1]
+            # 📌 zamiast punktu najbliższego, celuj w punkt do przodu
+            lookahead_idx = min(nearest_idx + 3, len(self.ref_path) - 1)
+            target_point = self.ref_path[lookahead_idx]
+
+            # dystans
+            min_dist = np.linalg.norm(target_point - np.array([x, y]))
+
+            # kierunek toru
+            if lookahead_idx < len(self.ref_path) - 1:
+                next_point = self.ref_path[lookahead_idx + 1]
             else:
-                next_point = path_point  # ostatni punkt, brak następnego
+                next_point = target_point
 
-            path_direction = np.arctan2(next_point[1] - path_point[1],
-                                        next_point[0] - path_point[0])
-            yaw_diff = np.arctan2(np.sin(yaw - path_direction), np.cos(yaw - path_direction))  # wrap [-π, π]
+            path_direction = np.arctan2(next_point[1] - target_point[1],
+                                        next_point[0] - target_point[0])
+            yaw_diff = np.arctan2(np.sin(yaw - path_direction), np.cos(yaw - path_direction))
 
-            # 3. Prędkość – można ograniczyć lub karać przekroczenie
-            v_penalty = max(0.0, v - 5.0)  # kara za prędkość powyżej 5 m/s
+            total_cost += (
+                3.0 * min_dist ** 2 +
+                5.5 * yaw_diff ** 2 +
+                1.0 * v **2
+            )
 
-            # 4. Suma ważona
-            dist_weight = 2.0
-            angle_weight = 1.0
-            speed_weight = 0.5
-
-            cost = (dist_weight * min_dist ** 2 +
-                    angle_weight * yaw_diff ** 2 +
-                    speed_weight * v_penalty ** 2)
-
-            total_cost += cost
+            # if v < 0.2:
+            #     total_cost += (0.2 - v) ** 2 * 50  # kara rośnie, im wolniej
 
         return total_cost
+
+   
 
 
     def control(self, x0):
@@ -106,16 +119,19 @@ class MppiController:
         self.nominal_u[-1] = 0.0
 
         # Zapisz trajektorie do wizualizacji
-        self.last_nominal = self.simulate_trajectory(x0, self.nominal_u)
+        # self.last_nominal = self.simulate_trajectory(x0, self.nominal_u)
 
-        # wybierz najlepsze rollouty
-        sorted_idxs = np.argsort(costs)
-        best_idxs = sorted_idxs[:10]
+        # # wybierz najlepsze rollouty
+        # sorted_idxs = np.argsort(costs)
+        # best_idxs = sorted_idxs[:10]
 
-        self.last_rollouts = []
-        for idx in best_idxs:
-            u_k = self.nominal_u + noises[idx]
-            traj = self.simulate_trajectory(x0, u_k)
-            self.last_rollouts.append(traj)
+        # self.last_rollouts = []
+        # for idx in best_idxs:
+        #     u_k = self.nominal_u + noises[idx]
+        #     traj = self.simulate_trajectory(x0, u_k)
+        #     self.last_rollouts.append(traj)
 
+        #print(f"u_cmd: steer={u_cmd[0]:+.3f}, accel={u_cmd[1]:+.3f}")
+
+        u_cmd[1] = max(0.0, u_cmd[1]) 
         return u_cmd
