@@ -3,7 +3,7 @@ import numpy as np
 class MppiController:
     """Klasa implementująca sterownik bazujący na metodzie MPPI"""
 
-    def __init__(self, model, ref_path, N=15, K=100, lambda_=0.5, dt=0.1, noise_sigma=(0.1, 0.6)):
+    def __init__(self, model, ref_path, N=15, K=100, lambda_=0.5, dt=0.1, noise_sigma=(0.2, 0.5)):
         """ Inicjalizacja parametrów sterowania
 
         :param model: obiekt klasy VehicleModel
@@ -21,7 +21,7 @@ class MppiController:
         self.dt = dt
         self.noise_sigma = np.array(noise_sigma)
 
-        self.udim = 2                                   # [delta_dot, T_dot]
+        self.udim = 2                                   # [steer, accel]
         self.nominal_u = np.zeros((N, self.udim))       # bieżąca trajektoria sterowania
         self.ref_path = ref_path
 
@@ -36,7 +36,6 @@ class MppiController:
         trajectory = [x.copy()]             # dodaje stan początkowy x0 do trajektorii
 
         for u in U:
-            #u = np.array([u[0], max(0.0, u[1])])  # ⛔ nie pozwól MPPI cofać
 
             u[0] = np.clip(u[0], -self.model.max_steer_abs, self.model.max_steer_abs)
             u[1] = np.clip(u[1], -self.model.max_accel_abs , self.model.max_accel_abs)
@@ -59,7 +58,7 @@ class MppiController:
             distances = np.linalg.norm(self.ref_path - np.array([x, y]), axis=1)
             nearest_idx = np.argmin(distances)
 
-            # 📌 zamiast punktu najbliższego, celuj w punkt do przodu
+            # zamiast punktu najbliższego, celuj w punkt do przodu
             lookahead_idx = min(nearest_idx + 3, len(self.ref_path) - 1)
             target_point = self.ref_path[lookahead_idx]
 
@@ -79,15 +78,17 @@ class MppiController:
             
 
             total_cost += (
-                7.0 * min_dist ** 2 +
-                25.0 * yaw_diff ** 2 
+                3.0 * min_dist ** 2 +
+                5.0 * yaw_diff ** 2 
                 #1.0 * v **2
             )
 
             if v < 0.5:
-                total_cost += (0.5 - v) ** 2 * 5  # kara rośnie, im wolniej
-            elif v > 1.7:
-                total_cost += (v - 1.7) ** 2 * 5
+                total_cost += (0.5 - v) ** 2 * 0.5  # kara rośnie, im wolniej
+            elif v > 2.6 and v < 3.5:
+                total_cost += (v - 2.6) ** 2 * 1.0
+            elif v > 3.5:
+                total_cost += (v - 3.5) ** 2 * 3
             
 
         return total_cost
