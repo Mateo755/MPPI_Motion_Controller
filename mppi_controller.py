@@ -3,7 +3,7 @@ import numpy as np
 class MppiController:
     """Klasa implementująca sterownik bazujący na metodzie MPPI"""
 
-    def __init__(self, model, ref_path, N=30, K=300, lambda_=0.8, dt=0.05, noise_sigma=(0.2, 0.5)):
+    def __init__(self, model, ref_path, N=15, K=200, lambda_=0.6, dt=0.05, noise_sigma=(0.3, 0.5)):
         """ Inicjalizacja parametrów sterowania
 
         :param model: obiekt klasy VehicleModel
@@ -38,7 +38,7 @@ class MppiController:
         for u in U:
             #u = np.array([u[0], max(0.0, u[1])])  # ⛔ nie pozwól MPPI cofać
 
-            u[0] = np.clip(u[0], -0.5236, 0.5236)
+            u[0] = np.clip(u[0], -0.3236, 0.3236)
             u[1] = np.clip(u[1], -3 , 3 )
             x = self.model.next_state(x, u, self.dt)
 
@@ -53,6 +53,8 @@ class MppiController:
 
             if v < 0.01:
                 return 1e6
+            
+            print(f"v = {v:.2f}")
 
             distances = np.linalg.norm(self.ref_path - np.array([x, y]), axis=1)
             nearest_idx = np.argmin(distances)
@@ -74,14 +76,19 @@ class MppiController:
                                         next_point[0] - target_point[0])
             yaw_diff = np.arctan2(np.sin(yaw - path_direction), np.cos(yaw - path_direction))
 
+            
+
             total_cost += (
                 3.0 * min_dist ** 2 +
-                5.5 * yaw_diff ** 2 +
-                1.0 * v **2
+                5.5 * yaw_diff ** 2 
+                #1.0 * v **2
             )
 
-            # if v < 0.2:
-            #     total_cost += (0.2 - v) ** 2 * 50  # kara rośnie, im wolniej
+            if v < 0.2:
+                total_cost += (0.2 - v) ** 2 * 5  # kara rośnie, im wolniej
+            elif v > 1.2:
+                total_cost += (v - 1.2) ** 2 * 5
+            
 
         return total_cost
 

@@ -44,7 +44,8 @@ def main():
     """Uruchamia główną pętlę programu w pygame"""
     
     pygame.init()                                       # Inicjalizacja Pygame
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
+
     clock = pygame.time.Clock()                         # Timer do kontroli liczby klatek na sekundę
 
     #Startowa pozycja z pliku CSV
