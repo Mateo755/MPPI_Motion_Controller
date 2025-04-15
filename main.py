@@ -11,14 +11,28 @@ def draw_track(screen, track, color, origin_x, origin_y, scale):
         y = int(origin_y + point[1] * scale)
         pygame.draw.circle(screen, color, (x, y), 2)
 
-def draw_trajectory(screen, traj, color, scale, origin_x, origin_y, width=1, alpha=255):
-    if traj is None:
+def draw_trajectory(screen, traj, color, scale, origin_x, origin_y, width=2, alpha=255, extend=1.5):
+    if traj is None or len(traj) < 2:
         return
-    for i in range(len(traj)-1):
-        x1 = int(origin_x + traj[i][0] * scale)
-        y1 = int(origin_y + traj[i][1] * scale)
-        x2 = int(origin_x + traj[i+1][0] * scale)
-        y2 = int(origin_y + traj[i+1][1] * scale)
+
+    for i in range(len(traj) - 1):
+        x1_raw, y1_raw = traj[i][0], traj[i][1]
+        x2_raw, y2_raw = traj[i+1][0], traj[i+1][1]
+
+        # wektor od p1 do p2
+        dx = x2_raw - x1_raw
+        dy = y2_raw - y1_raw
+
+        # wydłuż punkt końcowy wektora
+        x2_ext = x1_raw + dx * extend
+        y2_ext = y1_raw + dy * extend
+
+        # przelicz na piksele
+        x1 = int(origin_x + x1_raw * scale)
+        y1 = int(origin_y + y1_raw * scale)
+        x2 = int(origin_x + x2_ext * scale)
+        y2 = int(origin_y + y2_ext * scale)
+
         pygame.draw.line(screen, color, (x1, y1), (x2, y2), width)
 
 
@@ -96,9 +110,9 @@ def main():
         draw_track(screen, ref_xy, (0, 0, 255), origin_x, origin_y, scale)
 
         # trajektorie MPPI
-        # for rollout in controller.last_rollouts[:10]:
-        #     draw_trajectory(screen, rollout, color=(150, 150, 150), scale=scale, origin_x=origin_x, origin_y=origin_y, width=1)
-        # draw_trajectory(screen, controller.last_nominal, color=(153, 0, 153), scale=scale, origin_x=origin_x, origin_y=origin_y, width=2)
+        for rollout in controller.last_rollouts[:]:
+            draw_trajectory(screen, rollout, color=(150, 150, 150), scale=scale, origin_x=origin_x, origin_y=origin_y, width=3, extend=0)
+        #draw_trajectory(screen, controller.last_nominal, color=(153, 0, 153), scale=scale, origin_x=origin_x, origin_y=origin_y, width=3)
                                         
         
         

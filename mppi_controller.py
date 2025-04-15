@@ -3,7 +3,7 @@ import numpy as np
 class MppiController:
     """Klasa implementująca sterownik bazujący na metodzie MPPI"""
 
-    def __init__(self, model, ref_path, N=15, K=200, lambda_=0.6, dt=0.05, noise_sigma=(0.3, 0.5)):
+    def __init__(self, model, ref_path, N=15, K=100, lambda_=0.5, dt=0.1, noise_sigma=(0.1, 0.6)):
         """ Inicjalizacja parametrów sterowania
 
         :param model: obiekt klasy VehicleModel
@@ -38,8 +38,8 @@ class MppiController:
         for u in U:
             #u = np.array([u[0], max(0.0, u[1])])  # ⛔ nie pozwól MPPI cofać
 
-            u[0] = np.clip(u[0], -0.3236, 0.3236)
-            u[1] = np.clip(u[1], -3 , 3 )
+            u[0] = np.clip(u[0], -self.model.max_steer_abs, self.model.max_steer_abs)
+            u[1] = np.clip(u[1], -self.model.max_accel_abs , self.model.max_accel_abs)
             x = self.model.next_state(x, u, self.dt)
 
             trajectory.append(x.copy())
@@ -54,7 +54,7 @@ class MppiController:
             if v < 0.01:
                 return 1e6
             
-            print(f"v = {v:.2f}")
+            #print(f"v = {v:.2f}")
 
             distances = np.linalg.norm(self.ref_path - np.array([x, y]), axis=1)
             nearest_idx = np.argmin(distances)
@@ -79,15 +79,15 @@ class MppiController:
             
 
             total_cost += (
-                3.0 * min_dist ** 2 +
-                5.5 * yaw_diff ** 2 
+                7.0 * min_dist ** 2 +
+                25.0 * yaw_diff ** 2 
                 #1.0 * v **2
             )
 
-            if v < 0.2:
-                total_cost += (0.2 - v) ** 2 * 5  # kara rośnie, im wolniej
-            elif v > 1.2:
-                total_cost += (v - 1.2) ** 2 * 5
+            if v < 0.5:
+                total_cost += (0.5 - v) ** 2 * 5  # kara rośnie, im wolniej
+            elif v > 1.7:
+                total_cost += (v - 1.7) ** 2 * 5
             
 
         return total_cost
@@ -103,11 +103,14 @@ class MppiController:
         
         # Inicjalizacja wektora funkcji kosztu trajektorii
         costs = np.zeros(self.K)
-
+        
+        self.last_rollouts = []                        # lista do przechowywania trajektorii
+        
         #Monte Carlo rollouts
         for k in range(self.K):
             u_k = self.nominal_u + noises[k]
             trajectory = self.simulate_trajectory(x0, u_k)
+            self.last_rollouts.append(trajectory)          # dodaj trajektorię do listy
             costs[k] = self.compute_cost(trajectory)
 
         
@@ -128,9 +131,9 @@ class MppiController:
         # Zapisz trajektorie do wizualizacji
         # self.last_nominal = self.simulate_trajectory(x0, self.nominal_u)
 
-        # # wybierz najlepsze rollouty
+        # wybierz najlepsze rollouty
         # sorted_idxs = np.argsort(costs)
-        # best_idxs = sorted_idxs[:10]
+        # best_idxs = sorted_idxs[:]
 
         # self.last_rollouts = []
         # for idx in best_idxs:
