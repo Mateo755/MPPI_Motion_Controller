@@ -85,10 +85,10 @@ class MppiController:
 
             if v < 0.5:
                 total_cost += (0.5 - v) ** 2 * 0.5  # kara rośnie, im wolniej
-            elif v > 2.6 and v < 3.5:
-                total_cost += (v - 2.6) ** 2 * 1.0
+            elif v > 3.0 and v < 3.5:
+                total_cost += (v - 3.0) ** 2 * 0.2
             elif v > 3.5:
-                total_cost += (v - 3.5) ** 2 * 3
+                total_cost += (v - 3.5) ** 2 * 1.5
             
 
         return total_cost

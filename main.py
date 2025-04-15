@@ -35,6 +35,59 @@ def draw_trajectory(screen, traj, color, scale, origin_x, origin_y, width=2, alp
 
         pygame.draw.line(screen, color, (x1, y1), (x2, y2), width)
 
+def draw_speedometer(screen, speed, max_speed, x=20, y=20, width=200, height=20):
+        # Tło
+        pygame.draw.rect(screen, (220, 220, 220), (x, y, width, height), border_radius=5)
+        font = pygame.font.SysFont("monospace", 24)   
+
+        # Kolor paska
+        if speed < 2.0:
+            color = (0, 180, 0)
+        elif speed < 3.5:
+            color = (255, 165, 0)
+        else:
+            color = (180, 0, 0)
+
+        # Pasek aktualnej prędkości
+        bar_width = int((speed / max_speed) * width)
+        pygame.draw.rect(screen, color, (x, y, bar_width, height), border_radius=5)
+
+        # Tekst
+        text = font.render(f"Speed: {speed:.2f} m/s", True, (0, 0, 0))
+        screen.blit(text, (x, y + height + 5))
+
+def draw_steering_gauge(screen, steer_rad, max_steer_rad, x=100, y=200, radius=50):
+        import numpy as np
+
+        font_small = pygame.font.SysFont("monospace", 16)
+        font_value = pygame.font.SysFont("monospace", 20)
+
+        # Tło – łuk od 0° do 180° (czyli dół → lewa → góra → prawa → dół)
+        rect = pygame.Rect(x - radius, y - radius, 2 * radius, 2 * radius)
+        pygame.draw.arc(screen, (200, 200, 200), rect, np.radians(0), np.radians(180), 15)
+
+        # Clamp steering and normalize
+        steer_clamped = np.clip(steer_rad, -max_steer_rad, max_steer_rad)
+        ratio = steer_clamped / max_steer_rad  # -1.0 to +1.0
+
+        # Odwrócone: 0 rad = 270° (dół), dodatnie = w prawo
+        angle = np.radians(270) + ratio * np.radians(90)
+
+        needle_length = radius - 8
+        end_x = x + needle_length * np.cos(angle)
+        end_y = y + needle_length * np.sin(angle)
+
+        pygame.draw.line(screen, (0, 0, 0), (x, y), (int(end_x), int(end_y)), 4)
+
+        # Tekst
+        label = font_small.render("Steering Angle", True, (0, 0, 0))
+        screen.blit(label, (x - 70, y - radius - 25))
+
+        steer_deg = np.degrees(steer_rad)
+        value = font_value.render(f"{steer_deg:+.2f}°", True, (0, 0, 0))
+        screen.blit(value, (x - 30, y  + 20))
+
+
 
 # Wczytaj trajektorię z pliku CSV
 ref_path = np.genfromtxt('track_data/ovalpath.csv', delimiter=',', skip_header=1)
@@ -58,6 +111,7 @@ def main():
     """Uruchamia główną pętlę programu w pygame"""
     
     pygame.init()                                       # Inicjalizacja Pygame
+    font = pygame.font.SysFont("monospace", 24)   
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
 
     clock = pygame.time.Clock()                         # Timer do kontroli liczby klatek na sekundę
@@ -79,6 +133,7 @@ def main():
     
     running = True
     frame_counter = 0
+    smoothed_steer = 0.0
     # -------------------------------------------------------------------------------------------------------
     while running:
         dt = clock.tick(60) / 1000.0                    # Odlicza czas od ostatniej klatki (w sekundach)
@@ -101,7 +156,13 @@ def main():
         
         
         car.update(dt)                                  # Liczy nową pozycję, prędkości itd. na podstawie modelu
+        velocity = car.state[3]
+        #speed_text = font.render(f"v = {velocity:.2f} m/s", True, (0, 0, 0))
         #print(f"v = {car.state[3]:.2f}")
+
+        steer = car.control[0]  # albo gdzie trzymasz aktualny kąt skrętu
+        alpha = 0.2  # im mniejsze, tym gładsze (np. 0.1–0.3)
+        smoothed_steer = (1 - alpha) * smoothed_steer + alpha * steer
         # ==========================================
         
         screen.fill((255, 255, 255))                    # Czyści ekran (biały)
@@ -117,6 +178,10 @@ def main():
         
         
         car.draw(screen) # Rysuje pojazd (korpus + koła)
+        #screen.blit(speed_text, (20, 20))  # (x, y) pozycja na ekranie
+        draw_speedometer(screen, velocity, max_speed=car.max_velocity)  # zakładamy maks 5 m/s
+        draw_steering_gauge(screen, smoothed_steer, car.max_steer_abs)
+
         
         pygame.display.flip()    # Wyświetla nową klatkę
     #----------------------------------------------------------------------------------------------------------
