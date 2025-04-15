@@ -35,7 +35,7 @@ def draw_trajectory(screen, traj, color, scale, origin_x, origin_y, width=2, alp
 
         pygame.draw.line(screen, color, (x1, y1), (x2, y2), width)
 
-def draw_speedometer(screen, speed, max_speed, x=20, y=20, width=200, height=20):
+def draw_speedometer(screen, speed, max_speed, x=30, y=50, width=200, height=20):
         # Tło
         pygame.draw.rect(screen, (220, 220, 220), (x, y, width, height), border_radius=5)
         font = pygame.font.SysFont("monospace", 24)   
@@ -56,8 +56,7 @@ def draw_speedometer(screen, speed, max_speed, x=20, y=20, width=200, height=20)
         text = font.render(f"Speed: {speed:.2f} m/s", True, (0, 0, 0))
         screen.blit(text, (x, y + height + 5))
 
-def draw_steering_gauge(screen, steer_rad, max_steer_rad, x=100, y=200, radius=50):
-        import numpy as np
+def draw_steering_gauge(screen, steer_rad, max_steer_rad, x=350, y=100, radius=50):
 
         font_small = pygame.font.SysFont("monospace", 16)
         font_value = pygame.font.SysFont("monospace", 20)
@@ -86,6 +85,37 @@ def draw_steering_gauge(screen, steer_rad, max_steer_rad, x=100, y=200, radius=5
         steer_deg = np.degrees(steer_rad)
         value = font_value.render(f"{steer_deg:+.2f}°", True, (0, 0, 0))
         screen.blit(value, (x - 30, y  + 20))
+
+
+def draw_accel_gauge(screen, accel, max_accel, x=500, y=100, radius=50):
+
+    font_small = pygame.font.SysFont("monospace", 16)
+    font_value = pygame.font.SysFont("monospace", 20)
+
+    # Łuk tła (półkole od lewej do prawej strony)
+    rect = pygame.Rect(x - radius, y - radius, 2 * radius, 2 * radius)
+    pygame.draw.arc(screen, (200, 200, 200), rect, np.radians(0), np.radians(180), 15)
+
+    # Przycinanie i normalizacja
+    accel_clamped = np.clip(accel, -max_accel, max_accel)
+    ratio = accel_clamped / max_accel  # -1.0 ... +1.0
+
+    # Kąt wskazówki (0 = pionowo w dół = 270°)
+    angle = np.radians(270) + ratio * np.radians(90)
+
+    needle_length = radius - 8
+    end_x = x + needle_length * np.cos(angle)
+    end_y = y + needle_length * np.sin(angle)
+
+    pygame.draw.line(screen, (0, 0, 0), (x, y), (int(end_x), int(end_y)), 4)
+
+    # Tekst
+    label = font_small.render("Acceleration", True, (0, 0, 0))
+    screen.blit(label, (x - 45, y - radius - 25))
+
+    accel_text = font_value.render(f"{accel:+.2f} m/s²", True, (0, 0, 0))
+    screen.blit(accel_text, (x - 45, y + 20))
+
 
 
 
@@ -134,6 +164,7 @@ def main():
     running = True
     frame_counter = 0
     smoothed_steer = 0.0
+    smoothed_accel = 0.0
     # -------------------------------------------------------------------------------------------------------
     while running:
         dt = clock.tick(60) / 1000.0                    # Odlicza czas od ostatniej klatki (w sekundach)
@@ -163,6 +194,9 @@ def main():
         steer = car.control[0]  # albo gdzie trzymasz aktualny kąt skrętu
         alpha = 0.2  # im mniejsze, tym gładsze (np. 0.1–0.3)
         smoothed_steer = (1 - alpha) * smoothed_steer + alpha * steer
+
+        accel = car.control[1]
+        smoothed_accel = (1 - alpha) * smoothed_accel + alpha * accel
         # ==========================================
         
         screen.fill((255, 255, 255))                    # Czyści ekran (biały)
@@ -181,6 +215,7 @@ def main():
         #screen.blit(speed_text, (20, 20))  # (x, y) pozycja na ekranie
         draw_speedometer(screen, velocity, max_speed=car.max_velocity)  # zakładamy maks 5 m/s
         draw_steering_gauge(screen, smoothed_steer, car.max_steer_abs)
+        draw_accel_gauge(screen, smoothed_accel, car.max_accel_abs)
 
         
         pygame.display.flip()    # Wyświetla nową klatkę
