@@ -50,10 +50,6 @@ class MppiController:
         for state in trajectory:
             x, y, yaw, v = state
 
-            if v < 0.01:
-                return 1e6
-            
-            #print(f"v = {v:.2f}")
 
             distances = np.linalg.norm(self.ref_path - np.array([x, y]), axis=1)
             nearest_idx = np.argmin(distances)
@@ -61,7 +57,7 @@ class MppiController:
             # zamiast punktu najbliższego, celuj w punkt do przodu
             lookahead_idx = min(nearest_idx + 3, len(self.ref_path) - 1)
             target_point = self.ref_path[lookahead_idx]
-
+            
             # dystans
             min_dist = np.linalg.norm(target_point - np.array([x, y]))
 
@@ -80,16 +76,11 @@ class MppiController:
             total_cost += (
                 3.0 * min_dist ** 2 +
                 5.0 * yaw_diff ** 2 
-                #1.0 * v **2
             )
 
-            if v < 0.5:
-                total_cost += (0.5 - v) ** 2 * 0.5  # kara rośnie, im wolniej
-            elif v > 3.0 and v < 3.5:
-                total_cost += (v - 3.0) ** 2 * 0.2
-            elif v > 3.5:
-                total_cost += (v - 3.5) ** 2 * 1.5
             
+            if v < 2.0:
+                total_cost += (0.5 - v) ** 2 * 0.5  # kara rośnie, im wolniej
 
         return total_cost
 
@@ -144,5 +135,5 @@ class MppiController:
 
         #print(f"u_cmd: steer={u_cmd[0]:+.3f}, accel={u_cmd[1]:+.3f}")
 
-        u_cmd[1] = max(0.0, u_cmd[1]) 
+        #u_cmd[1] = max(0.0, u_cmd[1]) 
         return u_cmd
