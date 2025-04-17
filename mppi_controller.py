@@ -3,7 +3,7 @@ import numpy as np
 class MppiController:
     """Klasa implementująca sterownik bazujący na metodzie MPPI"""
 
-    def __init__(self, model, ref_path, N=15, K=100, lambda_=0.5, dt=0.1, noise_sigma=(0.2, 0.5)):
+    def __init__(self, model, ref_path, N=10, K=30, lambda_=0.5, dt=0.1, noise_sigma=(0.2, 0.6)):
         """ Inicjalizacja parametrów sterowania
 
         :param model: obiekt klasy VehicleModel
@@ -50,39 +50,40 @@ class MppiController:
         for state in trajectory:
             x, y, yaw, v = state
 
-
             distances = np.linalg.norm(self.ref_path - np.array([x, y]), axis=1)
             nearest_idx = np.argmin(distances)
 
-            # zamiast punktu najbliższego, celuj w punkt do przodu
-            lookahead_idx = min(nearest_idx + 3, len(self.ref_path) - 1)
+            lookahead_idx = min(nearest_idx + 3, len(self.ref_path) - 2)  # -2 by zmieścić +1
             target_point = self.ref_path[lookahead_idx]
-            
-            # dystans
+            next_point = self.ref_path[lookahead_idx + 1]
+
+            # Kierunek aktualny i kolejny
+            path_dir_1 = np.arctan2(next_point[1] - target_point[1], next_point[0] - target_point[0])
+
+            lookahead2_idx = min(lookahead_idx + 5, len(self.ref_path) - 1)
+            future_point = self.ref_path[lookahead2_idx]
+            path_dir_2 = np.arctan2(future_point[1] - next_point[1], future_point[0] - next_point[0])
+
+            dir_change = np.abs(np.arctan2(np.sin(path_dir_2 - path_dir_1), np.cos(path_dir_2 - path_dir_1)))
+
+            v_max = 18.0
+            v_min = 4.0
+            v_target = v_max - dir_change * 8.0
+            v_target = np.clip(v_target, v_min, v_max)
+
             min_dist = np.linalg.norm(target_point - np.array([x, y]))
 
-            # kierunek toru
-            if lookahead_idx < len(self.ref_path) - 1:
-                next_point = self.ref_path[lookahead_idx + 1]
-            else:
-                next_point = target_point
-
-            path_direction = np.arctan2(next_point[1] - target_point[1],
-                                        next_point[0] - target_point[0])
+            path_direction = path_dir_1
             yaw_diff = np.arctan2(np.sin(yaw - path_direction), np.cos(yaw - path_direction))
 
-            
-
             total_cost += (
-                3.0 * min_dist ** 2 +
-                5.0 * yaw_diff ** 2 
+                4.0 * min_dist ** 2 +
+                8.0 * yaw_diff ** 2 +
+                0.5 * (v - v_target) ** 2
             )
 
-            
-            if v < 2.0:
-                total_cost += (0.5 - v) ** 2 * 0.5  # kara rośnie, im wolniej
-
         return total_cost
+
 
    
 
