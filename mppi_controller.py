@@ -3,7 +3,7 @@ import numpy as np
 class MppiController:
     """Klasa implementująca sterownik bazujący na metodzie MPPI"""
 
-    def __init__(self, model, ref_path, N=10, K=30, lambda_=0.5, dt=0.1, noise_sigma=(0.2, 0.6)):
+    def __init__(self, model, ref_path, left_edge=None, right_edge=None, N=10, K=30, lambda_=0.5, dt=0.1, noise_sigma=(0.2, 0.7)):
         """ Inicjalizacja parametrów sterowania
 
         :param model: obiekt klasy VehicleModel
@@ -25,6 +25,9 @@ class MppiController:
         self.nominal_u = np.zeros((N, self.udim))       # bieżąca trajektoria sterowania
         self.ref_path = ref_path
 
+        
+        self.left_edge = left_edge
+        self.right_edge = right_edge
                                                         # for visualization
         self.last_rollouts = []
         self.last_nominal = None
@@ -46,43 +49,57 @@ class MppiController:
     
     def compute_cost(self, trajectory):
         total_cost = 0.0
+        progress = 0.0
 
         for state in trajectory:
             x, y, yaw, v = state
 
+            # znajdź najbliższy punkt na ref_path
             distances = np.linalg.norm(self.ref_path - np.array([x, y]), axis=1)
             nearest_idx = np.argmin(distances)
 
-            lookahead_idx = min(nearest_idx + 3, len(self.ref_path) - 2)  # -2 by zmieścić +1
+            # SPRAWDZANIE WYJAZDU POZA TOR
+            left = self.left_edge[nearest_idx]
+            right = self.right_edge[nearest_idx]
+
+            edge_vec = left - right
+            point_vec = np.array([x, y]) - right
+            proj = np.dot(point_vec, edge_vec) / np.dot(edge_vec, edge_vec)
+
+            # jeśli pojazd poza "pasem jezdni"
+            if proj < 0.0 or proj > 1.0:
+                total_cost += 1e5  # kara za wypadnięcie z toru
+
+            # odległość od środka toru (opcjonalnie – dla stabilności)
+            min_dist = np.linalg.norm(self.ref_path[nearest_idx] - np.array([x, y]))
+
+            # różnica orientacji względem trajektorii
+            lookahead_idx = min(nearest_idx + 3, len(self.ref_path) - 2)
             target_point = self.ref_path[lookahead_idx]
             next_point = self.ref_path[lookahead_idx + 1]
 
-            # Kierunek aktualny i kolejny
-            path_dir_1 = np.arctan2(next_point[1] - target_point[1], next_point[0] - target_point[0])
+            # Wektor toru (kierunek ruchu wzdłuż toru)
+            tangent_vec = next_point - target_point
+            tangent_vec /= np.linalg.norm(tangent_vec)
 
-            lookahead2_idx = min(lookahead_idx + 5, len(self.ref_path) - 1)
-            future_point = self.ref_path[lookahead2_idx]
-            path_dir_2 = np.arctan2(future_point[1] - next_point[1], future_point[0] - next_point[0])
+            # Wektor ruchu pojazdu (obecna prędkość i orientacja)
+            vehicle_direction = np.array([np.cos(yaw), np.sin(yaw)])
 
-            dir_change = np.abs(np.arctan2(np.sin(path_dir_2 - path_dir_1), np.cos(path_dir_2 - path_dir_1)))
+            # Skalarna projekcja ruchu na tor
+            delta = np.dot(vehicle_direction, tangent_vec) * v * self.dt
 
-            v_max = 18.0
-            v_min = 4.0
-            v_target = v_max - dir_change * 8.0
-            v_target = np.clip(v_target, v_min, v_max)
+            # Suma postępu
+            progress += delta
 
-            min_dist = np.linalg.norm(target_point - np.array([x, y]))
-
-            path_direction = path_dir_1
+            path_direction = np.arctan2(next_point[1] - target_point[1],
+                                        next_point[0] - target_point[0])
             yaw_diff = np.arctan2(np.sin(yaw - path_direction), np.cos(yaw - path_direction))
 
-            total_cost += (
-                4.0 * min_dist ** 2 +
-                8.0 * yaw_diff ** 2 +
-                0.5 * (v - v_target) ** 2
-            )
 
+            # Odejmij postęp (nagroda za jazdę)
+            total_cost -= 0.5 * progress  # ← większy postęp = mniejszy koszt
         return total_cost
+
 
 
    

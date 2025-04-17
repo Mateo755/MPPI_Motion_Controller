@@ -11,6 +11,18 @@ def draw_track(screen, track, color, origin_x, origin_y, scale):
         y = int(origin_y + point[1] * scale)
         pygame.draw.circle(screen, color, (x, y), 2)
 
+
+def draw_track_edges(screen, left_edge, right_edge, origin_x, origin_y, scale, color_left=(0, 0, 0), color_right=(0, 0, 0)):
+    for point in left_edge:
+        x = int(origin_x + point[0] * scale)
+        y = int(origin_y + point[1] * scale)
+        pygame.draw.circle(screen, color_left, (x, y), 2)
+
+    for point in right_edge:
+        x = int(origin_x + point[0] * scale)
+        y = int(origin_y + point[1] * scale)
+        pygame.draw.circle(screen, color_right, (x, y), 2)
+
 def draw_trajectory(screen, traj, color, scale, origin_x, origin_y, width=2, alpha=255, extend=1.5):
     if traj is None or len(traj) < 2:
         return
@@ -116,14 +128,37 @@ def draw_accel_gauge(screen, accel, max_accel, x=500, y=100, radius=50):
     accel_text = font_value.render(f"{accel:+.2f} m/s²", True, (0, 0, 0))
     screen.blit(accel_text, (x - 45, y + 20))
 
+def build_track_edges(centerline, track_width=1.5):
+    left_edge = []
+    right_edge = []
+
+    for i in range(len(centerline) - 1):
+        p1 = centerline[i]
+        p2 = centerline[i + 1]
+        direction = p2 - p1
+        direction /= np.linalg.norm(direction)
+        normal = np.array([-direction[1], direction[0]])  # lewo
+
+        left_edge.append(p1 + normal * track_width)
+        right_edge.append(p1 - normal * track_width)
+
+    # dla ostatniego punktu kopiujemy ostatnią orientację
+    left_edge.append(left_edge[-1])
+    right_edge.append(right_edge[-1])
+
+    return np.array(left_edge), np.array(right_edge)
+
 
 
 
 # Wczytaj trajektorię z pliku CSV
 ref_path = np.genfromtxt('track_data/ovalpath.csv', delimiter=',', skip_header=1)
 ref_xy = ref_path[:, 0:2]  # tylko x, y
+
+left_edge, right_edge = build_track_edges(ref_xy, track_width=3)
+
 ref_yaw = ref_path[:, 2]
-ref_v = ref_path[:, 3]
+#ref_v = ref_path[:, 3]
 
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 900
@@ -154,7 +189,7 @@ def main():
     start_py = int(origin_y + start_world[1] * scale)
 
     car = VehicleSprite(start_pos=(start_px, start_py), origin_x=origin_x, origin_y=origin_y, scale=scale)  # Tworzy pojazd
-    controller = MppiController(model=car, ref_path=ref_xy)
+    controller = MppiController(model=car, ref_path=ref_xy, left_edge=left_edge, right_edge=right_edge)
      
     # Poprawne ustawienie stanu fizycznego pojazdu
     car.state[0] = start_world[0]
@@ -203,6 +238,8 @@ def main():
 
         # Rysuj tor
         draw_track(screen, ref_xy, (0, 0, 255), origin_x, origin_y, scale)
+        draw_track_edges(screen, left_edge, right_edge, origin_x, origin_y, scale)
+
 
         # trajektorie MPPI
         for rollout in controller.last_rollouts[:]:
