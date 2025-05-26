@@ -99,7 +99,7 @@ Model kinematyczny, choć uproszczony, stanowi solidną bazę do projektowania i
 
 Poniższy schemat ilustruje kluczowe zależności geometryczne w modelu rowerowym. Model ten upraszcza rzeczywisty układ kół, zastępując oś przednią i tylną pojedynczymi punktami kontaktu z nawierzchnią.
 
-<img src="images/graphical_kinematic_model.png" alt="Model rowerowy pojazdu" width="50%"/>
+<img src="../images/graphical_kinematic_model.png" alt="Model rowerowy pojazdu" width="50%"/>
 
 **Tabela symboli:**
 

@@ -99,7 +99,7 @@ gdzie:
 
 ## Interpretacja wizualna
 
-<img src="images/Core_idea_mppi.png" width="100%"/>
+<img src="../images/Core_idea_mppi.png" width="100%"/>
 
 * Na wykresie przedstawiono 3 trajektorie (`delta_u_1`, `delta_u_2`, `delta_u_3`) w różnych kolorach.
 * Każda ma przypisany **koszt**: 100, 2000, 5000.
