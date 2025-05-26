@@ -131,6 +131,7 @@ class MppiController:
             p2 = self.ref_path[lookahead_idx + 1]
             p3 = self.ref_path[min(lookahead_idx + 2, len(self.ref_path) - 1)]
 
+            # Na podstawie trzech punktów odniesienia (lookahead) obliczana jest lokalna krzywizna toru
             d1 = p2 - p1
             d2 = p3 - p2
             angle_diff = np.arctan2(np.cross(d1, d2), np.dot(d1, d2))  # skręt toru
@@ -154,6 +155,7 @@ class MppiController:
             # Wektor ruchu pojazdu (obecna prędkość i orientacja)
             vehicle_direction = np.array([np.cos(yaw), np.sin(yaw)])
             # Skalarna projekcja ruchu na tor
+            # Obliczana jest skalarna projekcja wektora prędkości pojazdu na kierunek toru, co przekłada się na rzeczywisty postęp wzdłuż toru
             delta = np.dot(vehicle_direction, tangent_vec) * v * self.dt
             progress += delta   
 
@@ -161,9 +163,13 @@ class MppiController:
             path_direction = np.arctan2(next_point[1] - target_point[1],
                                         next_point[0] - target_point[0])  
 
+            # Różnica orientacji pojazdu względem lokalnego kierunku toru (tzw. yaw error)
             yaw_diff = np.arctan2(np.sin(yaw - path_direction), np.cos(yaw - path_direction))
-
+            
+            # Koszt zostaje pomniejszony o nagrodę za postęp, ważoną przez warunki toru (np. prosty odcinek lub zakręt).
             total_cost -= speed_reward_weight * progress
+           
+            # Im większa prędkość i błąd orientacji, tym większy koszt
             total_cost +=  + v * yaw_diff ** 2
 
         return total_cost
