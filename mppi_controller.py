@@ -170,7 +170,7 @@ class MppiController:
             total_cost -= speed_reward_weight * progress
            
             # Im większa prędkość i błąd orientacji, tym większy koszt
-            total_cost +=  + v * yaw_diff ** 2
+            total_cost +=  v * yaw_diff ** 2
 
         return total_cost
 
@@ -189,8 +189,7 @@ class MppiController:
             u_cmd: Optymalne sterowanie (skręt, przyspieszenie) do wykonania teraz
         """
         
-        # Generuj szum dla K trajektorii (rolloutów)
-        # Perturbacje sterowania (δu) - Każdy rollout dostaje unikalny zestaw szumów.
+        # Generowany szum dla K trajektorii (rolloutów)
         noises = np.random.normal(0, self.noise_sigma, size=(self.K, self.N, self.udim))
         
         # Inicjalizacja wektora funkcji kosztu trajektorii
@@ -209,35 +208,37 @@ class MppiController:
 
         
         # Ważone poprawki do sterowania
-        beta = np.min(costs)                                        # Przesunięcie dla stabilności numerycznej
-        weights = np.exp(-1.0 / self.lambda_ * (costs - beta))      # (costs - beta) daje najniższemu kosztowi wagę ≈ 1
-        weights /= np.sum(weights + 1e-6)                           # Normalizacja, by wagi dawały sumę ≈ 1
+        # Przesunięcie dla stabilności numerycznej
+        # Funkcja exp(-cost) bardzo szybko zmierza do zera, gdy cost jest duży. 
+        # Wówczas może dojść do underflow czyli zaokrąglenia do zera 
+        beta = np.min(costs)                                      
+        # Zmniejszamy zakres wartości przekazywanych do exp() co stabilizuje obliczenia.
+
+        # Wyliczenie wag proporconalnych do kosztów
+        # Im mniejszy koszt, tym większa waga
+        weights = np.exp(-1.0 / self.lambda_ * (costs - beta))        # funkcja boltzmanna exp(-cost / lambda)
         
-        delta_u =  np.sum(weights[:, None, None] * noises, axis=0)  # delta_u = sum_k w_k * δu_k  -> reward-weighted perturbations
+        # dodanie 1e-6 żeby zapobiec dzieleniu przez zero w skrajnych przypadkach
+        weights /= np.sum(weights + 1e-6)                           
+        
+        # Normalizacja wagi sumują się do 1.0
+        
+        # Wagi mówią, jak bardzo każda perturbacja jest „ważna” przy uśrednianiu
+        # delta_u - Wynik uśrednienia (ważonego) perturbacji
+        delta_u =  np.sum(weights[:, None, None] * noises, axis=0)  
+        
+        # Aktualna sekwencja sterowania - aktualizacja o najlepszą perturbację
         self.nominal_u += delta_u
 
-        # Zastosowanie u0 i przesunięcie trajektorii
-        # Zastosowanie pierwszego sterowania i przesunięcie reszty w czasie
+        # MPPI planuje całą trajektorię sterowania na N kroków do przodu, ale w każdej iteracji wykonuje tylko pierwszy krok
+        # Wybieramy tylko pierwsze sterowanie z trajektorii
         u_cmd = self.nominal_u[0]
 
-        self.nominal_u[:-1] = self.nominal_u[1:]    # Aktualizacja: usunięcie wykorzystanego sterowania (u0) i wstawienie 0.0
+
+        # Przesunięcie trajektorii sterowania w lewo, bo próbka sterowania u0 została już wykorzystana
+        # Aktualizacja: usunięcie wykorzystanego sterowania (u0) i wstawienie 0.0
+        self.nominal_u[:-1] = self.nominal_u[1:]   
         self.nominal_u[-1] = 0.0
 
-        # Zapisz trajektorie do wizualizacji
-        # self.last_nominal = self.simulate_trajectory(x0, self.nominal_u)
 
-        # wybierz najlepsze rollouty
-        # sorted_idxs = np.argsort(costs)
-        # best_idxs = sorted_idxs[:]
-
-        # self.last_rollouts = []
-        # for idx in best_idxs:
-        #     u_k = self.nominal_u + noises[idx]
-        #     traj = self.simulate_trajectory(x0, u_k)
-        #     self.last_rollouts.append(traj)
-
-        #print(f"u_cmd: steer={u_cmd[0]:+.3f}, accel={u_cmd[1]:+.3f}")
-
-        #u_cmd[1] = max(0.0, u_cmd[1]) 
-        
-        return u_cmd
+        return u_cmd  # sterowanie do wykonania w tym kroku
