@@ -24,54 +24,54 @@ MPPI dąży do wyznaczenia optymalnej sekwencji sterowań, minimalizującej zada
 
 ### 3.1 Funkcja kosztu
 
-```
-J = sum_{t=0}^{T-1} l(x_t, u_t) + Phi(x_T)
-```
+$$J = \sum_{t=0}^{T-1} \ell(x_t, u_t) + \Phi(x_T)$$
+
 
 **Opis symboli:**
-- `J` – całkowity koszt trajektorii,
-- `T` – długość horyzontu czasowego (liczba kroków w przód),
-- `l(x_t, u_t)` – koszt etapowy w chwili `t` (np. odchylenie od toru, zużycie energii),
-- `Phi(x_T)` – koszt końcowy (np. odległość od celu na końcu horyzontu),
-- `x_t` – stan systemu w czasie `t`,
-- `u_t` – sterowanie w czasie `t`.
+- $J$ – całkowity koszt trajektorii
+- $T$ – długość horyzontu czasowego (liczba kroków w przód)
+- $\ell(x_t, u_t)$ – koszt etapowy w chwili $t$ (np. odchylenie od toru, zużycie energii)
+- $\Phi(x_T)$ – koszt końcowy (np. odległość od celu na końcu horyzontu)
+- $x_t$ – stan systemu w czasie $t$
+- $u_t$ – sterowanie w czasie $t$
 
 Ten wzór wyraża ogólną postać celu w optymalnym sterowaniu – sumę kosztów pośrednich i końcowego. Zarówno klasyczne MPC, jak i MPPI, starają się zminimalizować tę wartość.
 
 ### 3.2 Ważenie trajektorii (metoda całki po ścieżkach)
 
-```
-w_i = exp(-1/λ * (J_i - min(J))) / sum_j exp(-1/λ * (J_j - min(J)))
-```
+$$w_i = \frac{\exp\left(-\frac{1}{\lambda}(J_i - \min(J))\right)}{\sum_j \exp\left(-\frac{1}{\lambda}(J_j - \min(J))\right)}$$
+
 
 **Opis symboli:**
-- `w_i` – waga przypisana `i`-tej trajektorii,
-- `J_i` – koszt `i`-tej trajektorii,
-- `λ` (lambda) – parametr eksploracji (tzw. temperatura),
-- `min(J)` – najniższy koszt spośród wszystkich trajektorii.
+- $w_i$ – waga przypisana $i$-tej trajektorii
+- $J_i$ – koszt $i$-tej trajektorii
+- $\lambda$ – parametr eksploracji (tzw. temperatura)
+- $\min(J)$ – najniższy koszt spośród wszystkich trajektorii
 
 Ten wzór implementuje tzw. **soft-minimum**, czyli wersję uśrednioną minimum z uwzględnieniem wszystkich trajektorii, gdzie lepsze (o niższym koszcie) są silniej premiowane. Jest to kluczowy element MPPI – odróżnia go od MPC, który wybiera jedną, najbardziej optymalną trajektorię.
 
 ### 3.3 Aktualizacja sterowania
 
-```
-u_t^{new} = u_t^{nom} + sum_i w_i * ε_i(t)
-```
+$$ u_t^{\text{new}} = u_t^{\text{nom}} + \sum_i w_i \cdot \varepsilon_i(t) $$
+
 
 **Opis symboli:**
-- `u_t^{new}` – nowe sterowanie w chwili `t`,
-- `u_t^{nom}` – nominalne sterowanie (punkt odniesienia),
-- `ε_i(t)` – szum dodany do `i`-tej trajektorii w chwili `t`,
-- `w_i` – waga `i`-tej trajektorii.
+- $u_t^{\text{new}}$ – nowe sterowanie w chwili $t$
+- $u_t^{\text{nom}}$ – nominalne sterowanie (punkt odniesienia)
+- $\varepsilon_i(t)$ – szum dodany do $i$-tej trajektorii w chwili $t$
+- $w_i$ – waga $i$-tej trajektorii
+
+
 
 Wzór ten mówi, że nowe sterowanie jest korektą nominalnej trajektorii na podstawie losowych prób i ich jakości. Dzięki temu MPPI nie potrzebuje analitycznych pochodnych i może działać z nieliniowymi, nieciągłymi modelami.
 
 ### Porównanie z klasycznym MPC
 
 W klasycznym Model Predictive Control, rozwiązujemy deterministyczny problem optymalizacji:
-```
-min_{u_0,...,u_T} J
-```
+
+$$\min_{u_0, \dots, u_T} J$$
+
+
 przy zadanych ograniczeniach i modelu. Takie podejście wymaga:
 - obliczania gradientów,
 - dokładnego modelu matematycznego,

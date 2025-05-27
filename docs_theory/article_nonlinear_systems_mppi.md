@@ -35,7 +35,7 @@ System jest nieliniowy i zawiera zakłócenia (ang. *process noise*).
 
 ---
 
-## 🔁 Reguła aktualizacji sterowania (Update Law)
+## Reguła aktualizacji sterowania (Update Law)
 
 Zaktualizowane sterowanie w danym stanie i czasie obliczane jest zgodnie z poniższym wzorem:
 
@@ -47,13 +47,33 @@ gdzie:
 
 -  $\mathbf{u}(x_t, t)$  — bieżące (nominalne) sterowanie,
 - $ \delta \mathbf{u}$  — perturbacja sterowania,
-- $\tilde{S}(\tau)$  — skumulowany koszt trajektorii \( \tau \),
+- $\tilde{S}(\tau)$  — skumulowany koszt trajektorii \( $\tau$ \),
 - $\lambda $ — parametr temperatury (kontroluje stopień eksploracji),
 - $\mathbb{E}_q[\cdot]$  — wartość oczekiwana względem rozkładu trajektorii.
 
-Ostateczne sterowanie stanowi sumę nominalnego wejścia i średniej ważonej perturbacji, gdzie wagi są funkcją (malejącą) kosztu trajektorii.
+### Struktura wzoru:
+
+$$
+\text{optymalne sterowanie} =
+\underbrace{\text{nominalne sterowanie}}_{\text{plan bazowy}} +
+\underbrace{
+\frac{\text{średnia ważona perturbacji}}{\text{suma wag}}
+}_{\text{uśredniona poprawka}}
+$$
 
 
+To formalna definicja aktualizacji sterowania w algorytmie Model Predictive Path Integral (MPPI) w ujęciu probabilistycznym. Sterowanie stanowi sumę nominalnego wejścia i średniej ważonej perturbacji, gdzie wagi są funkcją (malejącą) kosztu trajektorii.
+
+Obliczasz wartość oczekiwaną z perturbacji, ważoną przez ekspotencjalnie przeskalowany koszt
+
+
+### Skąd się bierze podana we wzorze wartość oczekiwana ? 
+Ten wzór pochodzi z tzw. path integral control theory (czyli "sterowania przez całkę po ścieżkach").
+To podejście przekształca problem optymalnego sterowania w probabilistyczny problem uśredniania po trajektoriach, ważonych przez ich jakość.
+
+```
+Zamiast klasycznego podejścia opartego na bezpośredniej minimalizacji funkcjonału kosztu, metodę formułuje się jako problem probabilistycznego uśredniania: generuje się zestaw trajektorii, wyznacza ich skumulowany koszt, a następnie aktualizuje sterowanie poprzez średnią ważoną perturbacji, gdzie wagi są wyznaczone na podstawie przekształconych kosztów (np. w formie rozkładu Boltzmannowskiego).
+```
 
 ---
 
@@ -84,17 +104,30 @@ Zaprojektować **efektywny kontroler** dla systemu nieliniowego w obecności **s
 
 Formuła aktualizacji sterowania:
 
-```
-u = u + sum(w_k * delta_u_k) / sum(w_k)
-```
+
+$$
+\mathbf{u} = \mathbf{u} + \frac{\sum_{k=1}^K w_k \delta \mathbf{u}_k}{\sum_{k=1}^K w_k}
+$$
+
 
 gdzie:
 
-* `delta_u_k` – zakłócenie sterowania w rollout'cie `k`,
-* `w_k = exp(-S_k / lambda)` – waga zależna od kosztu,
-* `lambda` – parametr eksploracji (temperatura),
-* `S_k` – koszt trajektorii `k`.
+* $\delta \mathbf{u_k} $ – zakłócenie sterowania w rollout'cie `k`,
+* $ \mathbf{w_k} = \exp(-S_k / \lambda) $ – waga zależna od kosztu,
+* $\mathbf{\lambda}$ – parametr eksploracji (temperatura),
+* $\mathbf{S_k}$ – koszt trajektorii `k`.
 
+### Dlaczego dodajemy tylko perturbacje $\delta u$ do $u$, zamiast nadpisywać $u$ nową wartością?
+Bo MPPI to algorytm iteracyjny, a nie bezpośredni optymalizator.
+
+MPPI nie szuka "od zera" najlepszej sekwencji sterowania w każdej iteracji.
+Zamiast tego:
+- startuje od aktualnego planu (nominal_u)
+- eksploruje jego otoczenie poprzez dodanie losowych szumów (perturbacji $\delta u_k$)
+- uczy się, w którą stronę warto poprawić — na podstawie kosztów
+- aktualizuje lekko — tylko o $\delta u$
+
+Czyli działa jak lokalny, przybliżony, stochastyczny gradient.
 ---
 
 ## Interpretacja wizualna
